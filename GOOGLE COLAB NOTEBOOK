@@ -1,0 +1,101 @@
+# NEURAL-STYLE-TRANSFER-TASK-3
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torchvision import models, transforms
+from PIL import Image
+import matplotlib.pyplot as plt
+
+from google.colab import drive
+drive.mount('/content/drive')
+
+from google.colab import files
+files.upload()
+Show hidden output
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+def load_image(image_path, max_size=400):
+image = Image.open(image_path).convert("RGB")
+size = min(max(image.size), max_size)
+transform = transforms.Compose([
+transforms.Resize(size),
+transforms.ToTensor(),
+])
+image = transform(image).unsqueeze(0)
+return image.to(device)
+def imshow(tensor, title=None):
+image = tensor.cpu().clone()
+image = image.squeeze(0)
+image = transforms.ToPILImage()(image)
+plt.imshow(image)
+if title:
+plt.title(title)
+plt.axis("off")
+
+content = load_image("content.jpeg")
+style = load_image("style.jpeg")
+imshow(content, "Content Image")
+imshow(style, "Style Image")
+![style](https://github.com/user-attachments/assets/5296a462-03df-4b25-b277-efca27225392)
+
+vgg = models.vgg19(pretrained=True).features.to(device).eval()
+for param in vgg.parameters():
+param.requires_grad = False
+/usr/local/lib/python3.12/dist-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is depreca
+  warnings.warn(
+/usr/local/lib/python3.12/dist-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or
+  warnings.warn(msg)
+
+  def gram_matrix(tensor):
+_, c, h, w = tensor.size()
+tensor = tensor.view(c, h * w)
+gram = torch.mm(tensor, tensor.t())
+return gram
+
+content_layer = '21'
+style_layers = ['0', '5', '10', '19', '28']
+
+def get_features(image, model):
+features = {}
+x = image
+for name, layer in model._modules.items():
+x = layer(x)
+if name in style_layers:
+features[name] = x
+if name == content_layer:
+features['content'] = x
+return features
+
+epochs = 150
+style_weight = 5e5
+content_weight = 1
+for i in range(epochs):
+target_features = get_features(target, vgg)
+content_loss = torch.mean(
+(target_features['content'] - content_features['content'])**2
+)
+style_loss = 0
+for layer in style_layers:
+target_gram = gram_matrix(target_features[layer])
+style_gram = style_grams[layer]
+style_loss += torch.mean((target_gram - style_gram)**2)
+total_loss = content_weight * content_loss + style_weight * style_loss
+optimizer.zero_grad()
+total_loss.backward()
+optimizer.step()
+if i % 25 == 0:
+print(f"Epoch {i}/{epochs}, Total Loss: {total_loss.item():.2f}")
+Epoch 0/150, Total Loss: 10914307768320.00
+Epoch 25/150, Total Loss: 4663993171968.00
+Epoch 50/150, Total Loss: 3408292216832.00
+Epoch 75/150, Total Loss: 2868816904192.00
+Epoch 100/150, Total Loss: 2542012989440.00
+Epoch 125/150, Total Loss: 2302622564352.00
+
+imshow(target, "Stylized Image")
+output_image = target.cpu().clone().squeeze(0)
+output_image = transforms.ToPILImage()(output_image)
+output_image.save("output_style_transfer.jpg")
+![styled image](https://github.com/user-attachments/assets/4d11b497-8099-4fa6-84c1-8c551ee7c5b6)
+
+
